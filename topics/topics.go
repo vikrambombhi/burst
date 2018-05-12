@@ -1,34 +1,17 @@
 package topics
 
 import (
-	"github.com/vikrambombhi/burst/client"
-	"github.com/vikrambombhi/burst/messages"
+	"github.com/gorilla/websocket"
+	"github.com/vikrambombhi/burst/worker"
 )
 
-type Topic struct {
-	client   []client.Client
-	msgQueue []*messages.Message
-	name     string
-}
+var Topics map[string][]*worker.Worker
 
-var Topics map[string]Topic
-
-func AddClient(topicName string, conn *websocket.Conn) {
-	in := make(chan messages.Message)
-	out := make(chan messages.Message)
-	client := client.New(conn)
-
-	topic, exists := Topics[topicName]
-	if exists {
-		topic.client = append(topic.client, client)
-	} else {
-		topic.client = append(topic.client, client)
-		topic.msgQueue = make([]*messages.Message, 0)
-		topic.name = topicName
-	}
-}
-
-func BroadcastMessage(topicName string, message string) {
+func AddClient(conn *websocket.Conn, topicName string) {
+	topic := Topics[topicName]
+	worker := worker.New()
+	worker.AddClient(conn)
+	topic = append(topic, worker)
 }
 
 // status function

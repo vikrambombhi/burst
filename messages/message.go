@@ -9,3 +9,7 @@ func New(message []byte) Message {
 		message: string(message[:]),
 	}
 }
+
+func (message *Message) ToString() string {
+	return message.message
+}

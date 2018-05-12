@@ -8,15 +8,12 @@ import (
 	"github.com/vikrambombhi/burst/topics"
 )
 
+var topicName = "testTopic" // Single topic for now
+
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		return true
 	},
-}
-
-// status function
-func printTopics() {
-	log.Println(topics.GetAllTopics())
 }
 
 func handler() http.Handler {
@@ -29,17 +26,11 @@ func handler() http.Handler {
 
 		log.Println("New connection from: ", conn.RemoteAddr().String())
 
-		topics["testRoom"] = append(topics["testRoom"], Client{
-			msgQueue: make([]*[]byte, 0),
-			conn:     conn,
-		})
-
+		topics.AddClient(conn, topicName)
 	})
 }
 
 func main() {
-	go printTopics()
-
 	// Register our handler.
 	http.Handle("/ws", handler())
 	http.ListenAndServe(":8080", nil)
