@@ -6,24 +6,28 @@ import (
 	"github.com/vikrambombhi/burst/messages"
 )
 
-type Worker struct {
-	queue   chan messages.Message
-	clients []chan<- messages.Message // TODO: Change name and/or make this more elegant
+type worker struct {
+	toClient   chan messages.Message
+	fromClient chan messages.Message
+	clients    []chan<- messages.Message // TODO: Change name and/or make this more elegant
 }
 
-func New() *Worker {
-	worker := &Worker{}
+func createWorker(fromClient chan messages.Message) (*worker, chan<- messages.Message) {
+	toClient := make(chan messages.Message, 10)
+	worker := &worker{
+		toClient:   toClient,
+		fromClient: fromClient,
+	}
 	worker.start()
-	return worker
+	return worker, toClient
 }
 
 // TODO: ensure to worker hasnt already been started
-func (worker *Worker) start() {
-	worker.queue = make(chan messages.Message, 10)
+func (worker *worker) start() {
 	go func() {
 		for {
 			select {
-			case message := <-worker.queue:
+			case message := <-worker.toClient:
 				for _, client := range worker.clients {
 					client <- message
 				}
@@ -32,7 +36,8 @@ func (worker *Worker) start() {
 	}()
 }
 
-func (worker *Worker) AddClient(conn *websocket.Conn) {
-	clientInput := client.New(conn, worker.queue)
-	worker.clients = append(worker.clients, clientInput)
+// need to lock worker for safety
+func (worker *worker) addClient(conn *websocket.Conn) {
+	toClient := client.New(conn, worker.fromClient)
+	worker.clients = append(worker.clients, toClient)
 }
