@@ -8,8 +8,6 @@ import (
 	"github.com/vikrambombhi/burst/topics"
 )
 
-var topicName = "testTopic" // Single topic for now
-
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		return true
@@ -18,6 +16,7 @@ var upgrader = websocket.Upgrader{
 
 func handler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Println("URL: ", r.URL.Path)
 		conn, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
 			log.Println(err)
@@ -26,12 +25,12 @@ func handler() http.Handler {
 
 		log.Println("New connection from: ", conn.RemoteAddr().String())
 
-		topics.AddClient(conn, topicName)
+		topics.AddClient(conn, r.URL.Path)
 	})
 }
 
 func main() {
 	// Register our handler.
-	http.Handle("/ws", handler())
+	http.Handle("/", handler())
 	http.ListenAndServe(":8080", nil)
 }
