@@ -30,21 +30,21 @@ func New(conn *websocket.Conn, fromClient chan<- messages.Message) chan<- messag
 
 func (client *Client) readMessages() {
 	for {
-		_, message, err := client.conn.ReadMessage()
+		messageType, message, err := client.conn.ReadMessage()
 		if err != nil {
 			log.Println(err)
 			return
 		}
 		log.Println("recived message sending in channel: ", client.fromClient)
-		client.fromClient <- messages.New(message)
+		client.fromClient <- messages.New(message, messageType)
 	}
 }
 
 func (client *Client) writeMessages() {
 	for message := range client.toClient {
-		msgal := []byte(message.ToString())
+		msg := []byte(message.ToString())
 		//TODO: lock conn for safety
-		if err := client.conn.WriteMessage(websocket.TextMessage, msgal); err != nil {
+		if err := client.conn.WriteMessage(message.GetType(), msg); err != nil {
 			log.Println(err)
 			return
 		}
