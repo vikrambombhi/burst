@@ -1,29 +1,46 @@
 package worker
 
 import (
-	"log"
+	"fmt"
+	"os"
+	"strconv"
 
 	"github.com/gorilla/websocket"
 	"github.com/vikrambombhi/burst/messages"
 )
+
+const DEFAULT_WORKERS_PER_POOL int = 5
+
+var WorkersPerPool int
 
 type workerAndChan struct {
 	worker   *worker
 	toWorker chan<- messages.Message
 }
 
-// TODO: use env variable to get number of workers per topic, currently set to 1
 // TODO/maybe: make worker pools recersive
 type WorkerPool struct {
-	workersAndChans     [1]*workerAndChan
+	workersAndChans     []*workerAndChan
 	lastAllocatedWorker int
 	fromClient          chan messages.Message
 }
 
 func CreateWorkerPool() *WorkerPool {
-	fromClient := make(chan messages.Message, 5)
+	WorkersPerPool_string, ok := os.LookupEnv("WORKERS_PER_POOL")
+	if !ok {
+		WorkersPerPool = DEFAULT_WORKERS_PER_POOL
+	} else {
+		var err error
+		WorkersPerPool, err = strconv.Atoi(WorkersPerPool_string)
+		if err != nil {
+			WorkersPerPool = DEFAULT_WORKERS_PER_POOL
+		}
+	}
 
-	workersAndChans := [1]*workerAndChan{}
+	fmt.Printf("Creating worker-pool with %d workers\n", WorkersPerPool)
+
+	fromClient := make(chan messages.Message, 5)
+	workersAndChans := make([]*workerAndChan, WorkersPerPool)
 
 	for i, _ := range workersAndChans {
 		worker, toWorker := createWorker(fromClient)
@@ -43,16 +60,16 @@ func CreateWorkerPool() *WorkerPool {
 	return workerPool
 }
 
-// need to lock workerPool for safety
+// TODO: currently using round robin to allocate clients to workers, use some other form of load balancing later
+//TODO: should lock workerPool for safety
 func (workerPool *WorkerPool) AllocateClient(conn *websocket.Conn) {
-	log.Println("allocating client")
-	workerPool.workersAndChans[workerPool.lastAllocatedWorker%1].worker.addClient(conn)
+	fmt.Printf("allocating client to worker #%d\n", workerPool.lastAllocatedWorker%WorkersPerPool)
+	workerPool.workersAndChans[workerPool.lastAllocatedWorker%WorkersPerPool].worker.addClient(conn)
 	workerPool.lastAllocatedWorker = workerPool.lastAllocatedWorker + 1
 }
 
 func (workerPool *WorkerPool) broadcastMessages() {
 	go func(workerPool *WorkerPool) {
-		log.Println("listening for messages on channel ", workerPool.fromClient)
 		for message := range workerPool.fromClient {
 			for _, workerAndChan := range workerPool.workersAndChans {
 				workerAndChan.toWorker <- message

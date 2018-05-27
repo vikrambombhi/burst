@@ -1,8 +1,6 @@
 package topics
 
 import (
-	"log"
-
 	"github.com/gorilla/websocket"
 	"github.com/vikrambombhi/burst/worker"
 )
@@ -10,11 +8,9 @@ import (
 var Topics map[string]*worker.WorkerPool
 
 func init() {
-	log.Println("initalizing topics map")
 	Topics = map[string]*worker.WorkerPool{}
 }
 
-// TODO: currently using round robin to allocate clients to workers, use some other form of load balancing later
 func AddClient(conn *websocket.Conn, topicName string) {
 	_, exists := Topics[topicName]
 	if !exists {

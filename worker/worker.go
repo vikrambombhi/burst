@@ -1,6 +1,8 @@
 package worker
 
 import (
+	"fmt"
+
 	"github.com/gorilla/websocket"
 	"github.com/vikrambombhi/burst/client"
 	"github.com/vikrambombhi/burst/messages"
@@ -40,4 +42,5 @@ func (worker *worker) start() {
 func (worker *worker) addClient(conn *websocket.Conn) {
 	toClient := client.New(conn, worker.fromClient)
 	worker.clients = append(worker.clients, toClient)
+	fmt.Printf("worker now has %d clients\n", len(worker.clients))
 }
