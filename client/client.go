@@ -12,30 +12,46 @@ type Client struct {
 	conn       *websocket.Conn
 	toClient   <-chan messages.Message
 	fromClient chan<- messages.Message
+	done       chan bool
+	status     int
 }
 
-func New(conn *websocket.Conn, fromClient chan<- messages.Message) chan<- messages.Message {
+const STATUS_CLOSED = 0
+const STATUS_OPEN = 1
+
+func New(conn *websocket.Conn, fromClient chan<- messages.Message) (*Client, chan<- messages.Message) {
 	toClient := make(chan messages.Message, 10)
-	client := Client{
+	done := make(chan bool)
+	client := &Client{
 		addr:       conn.RemoteAddr().String(),
 		conn:       conn,
 		fromClient: fromClient,
 		toClient:   toClient,
+		done:       done,
+		status:     STATUS_OPEN,
 	}
 
 	go client.readMessages()
 	go client.writeMessages()
-	return toClient
+	return client, toClient
+}
+
+func (client *Client) GetStatus() int {
+	return client.status
 }
 
 func (client *Client) readMessages() {
 	for {
 		messageType, message, err := client.conn.ReadMessage()
 		if err != nil {
+			if websocket.IsUnexpectedCloseError(err) {
+				client.status = STATUS_CLOSED
+				close(client.done)
+			}
 			log.Println(err)
 			return
 		}
-		log.Println("recived message sending in channel: ", client.fromClient)
+
 		client.fromClient <- messages.New(message, messageType)
 	}
 }

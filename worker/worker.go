@@ -8,39 +8,47 @@ import (
 	"github.com/vikrambombhi/burst/messages"
 )
 
+type c struct {
+	client   *client.Client
+	toClient chan<- messages.Message
+}
+
 type worker struct {
-	toClient   chan messages.Message
+	clients    []*c
 	fromClient chan messages.Message
-	clients    []chan<- messages.Message // TODO: Change name and/or make this more elegant
+	toWorker   <-chan messages.Message
 }
 
 func createWorker(fromClient chan messages.Message) (*worker, chan<- messages.Message) {
-	toClient := make(chan messages.Message, 10)
+	toWorker := make(chan messages.Message, 10)
+
 	worker := &worker{
-		toClient:   toClient,
 		fromClient: fromClient,
+		toWorker:   toWorker,
 	}
-	worker.start()
-	return worker, toClient
+
+	go worker.start()
+	return worker, toWorker
 }
 
 // TODO: ensure to worker hasnt already been started
 func (worker *worker) start() {
-	go func() {
-		for {
-			select {
-			case message := <-worker.toClient:
-				for _, client := range worker.clients {
-					client <- message
-				}
+	for message := range worker.toWorker {
+		for _, c := range worker.clients {
+			if c.client.GetStatus() == client.STATUS_OPEN {
+				c.toClient <- message
 			}
 		}
-	}()
+	}
 }
 
 // need to lock worker for safety
 func (worker *worker) addClient(conn *websocket.Conn) {
-	toClient := client.New(conn, worker.fromClient)
-	worker.clients = append(worker.clients, toClient)
+	client, toClient := client.New(conn, worker.fromClient)
+	c := &c{
+		client:   client,
+		toClient: toClient,
+	}
+	worker.clients = append(worker.clients, c)
 	fmt.Printf("worker now has %d clients\n", len(worker.clients))
 }

@@ -13,50 +13,54 @@ const DEFAULT_WORKERS_PER_POOL int = 5
 
 var WorkersPerPool int
 
-type workerAndChan struct {
+type w struct {
 	worker   *worker
 	toWorker chan<- messages.Message
 }
 
-// TODO/maybe: make worker pools recersive
 type WorkerPool struct {
-	workersAndChans     []*workerAndChan
+	workers             []*w
 	lastAllocatedWorker int
 	fromClient          chan messages.Message
 }
 
-func CreateWorkerPool() *WorkerPool {
+func getWorkersPerPool() int {
 	WorkersPerPool_string, ok := os.LookupEnv("WORKERS_PER_POOL")
 	if !ok {
-		WorkersPerPool = DEFAULT_WORKERS_PER_POOL
-	} else {
-		var err error
-		WorkersPerPool, err = strconv.Atoi(WorkersPerPool_string)
-		if err != nil {
-			WorkersPerPool = DEFAULT_WORKERS_PER_POOL
-		}
+		return DEFAULT_WORKERS_PER_POOL
 	}
 
+	workersPerPool, err := strconv.Atoi(WorkersPerPool_string)
+	if err != nil {
+		return DEFAULT_WORKERS_PER_POOL
+	}
+	return workersPerPool
+}
+
+func CreateWorkerPool() *WorkerPool {
+	WorkersPerPool = getWorkersPerPool()
 	fmt.Printf("Creating worker-pool with %d workers\n", WorkersPerPool)
 
-	fromClient := make(chan messages.Message, 5)
-	workersAndChans := make([]*workerAndChan, WorkersPerPool)
+	fromClient := make(chan messages.Message, 20)
 
-	for i, _ := range workersAndChans {
+	// TODO: FIX TO USE NEW CHANNEL STRUCTURE
+	workers := make([]*w, WorkersPerPool)
+
+	for i, _ := range workers {
 		worker, toWorker := createWorker(fromClient)
-		workersAndChans[i] = &workerAndChan{
+		workers[i] = &w{
 			worker:   worker,
 			toWorker: toWorker,
 		}
 	}
 
 	workerPool := &WorkerPool{
-		workersAndChans:     workersAndChans,
+		workers:             workers,
 		lastAllocatedWorker: 0,
 		fromClient:          fromClient,
 	}
 
-	workerPool.broadcastMessages()
+	go workerPool.broadcastMessages()
 	return workerPool
 }
 
@@ -64,16 +68,16 @@ func CreateWorkerPool() *WorkerPool {
 //TODO: should lock workerPool for safety
 func (workerPool *WorkerPool) AllocateClient(conn *websocket.Conn) {
 	fmt.Printf("allocating client to worker #%d\n", workerPool.lastAllocatedWorker%WorkersPerPool)
-	workerPool.workersAndChans[workerPool.lastAllocatedWorker%WorkersPerPool].worker.addClient(conn)
-	workerPool.lastAllocatedWorker = workerPool.lastAllocatedWorker + 1
+	lastAllocatedWorker := workerPool.lastAllocatedWorker
+
+	workerPool.workers[lastAllocatedWorker%WorkersPerPool].worker.addClient(conn)
+	workerPool.lastAllocatedWorker = lastAllocatedWorker + 1
 }
 
 func (workerPool *WorkerPool) broadcastMessages() {
-	go func(workerPool *WorkerPool) {
-		for message := range workerPool.fromClient {
-			for _, workerAndChan := range workerPool.workersAndChans {
-				workerAndChan.toWorker <- message
-			}
+	for message := range workerPool.fromClient {
+		for _, worker := range workerPool.workers {
+			worker.toWorker <- message
 		}
-	}(workerPool)
+	}
 }
