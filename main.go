@@ -30,15 +30,19 @@ func getTopics() http.Handler {
 func handler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Println("URL: ", r.URL.Path)
-		conn, err := upgrader.Upgrade(w, r, nil)
-		if err != nil {
-			log.Println(err)
-			return
+		if websocket.IsWebSocketUpgrade(r) {
+			conn, err := upgrader.Upgrade(w, r, nil)
+			if err != nil {
+				log.Println(err)
+				return
+			}
+
+			log.Println("New connection from: ", conn.RemoteAddr().String())
+
+			topics.AddClient(conn, r.URL.Path)
+		} else {
+			http.Error(w, "Server requires connection to be a websocket, use format '/{topic name}'", http.StatusUpgradeRequired)
 		}
-
-		log.Println("New connection from: ", conn.RemoteAddr().String())
-
-		topics.AddClient(conn, r.URL.Path)
 	})
 }
 
