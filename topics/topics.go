@@ -1,28 +1,40 @@
 package topics
 
 import (
+	"sync"
+
 	"github.com/gorilla/websocket"
 	"github.com/vikrambombhi/burst/worker"
 )
 
-var Topics map[string]*worker.WorkerPool
+type topics struct {
+	workerPools map[string]*worker.WorkerPool
+	sync.RWMutex
+}
+
+var t *topics
 
 func init() {
-	Topics = map[string]*worker.WorkerPool{}
+	t = &topics{
+		workerPools: make(map[string]*worker.WorkerPool),
+	}
 }
 
 func AddClient(conn *websocket.Conn, topicName string) {
-	_, exists := Topics[topicName]
+	t.Lock()
+	defer t.Unlock()
+	_, exists := t.workerPools[topicName]
 	if !exists {
-		Topics[topicName] = worker.CreateWorkerPool()
+		t.workerPools[topicName] = worker.CreateWorkerPool()
 	}
-	Topics[topicName].AllocateClient(conn)
+	t.workerPools[topicName].AllocateClient(conn)
 }
 
-// status function
 func GetAllTopics() []string {
-	topicNames := make([]string, 0, len(Topics))
-	for topicName := range Topics {
+	t.RLock()
+	defer t.RUnlock()
+	topicNames := make([]string, 0, len(t.workerPools))
+	for topicName := range t.workerPools {
 		topicNames = append(topicNames, topicName)
 	}
 	return topicNames

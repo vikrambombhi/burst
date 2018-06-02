@@ -2,6 +2,7 @@ package worker
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/gorilla/websocket"
 	"github.com/vikrambombhi/burst/client"
@@ -17,6 +18,7 @@ type worker struct {
 	clients    []*c
 	fromClient chan messages.Message
 	toWorker   <-chan messages.Message
+	sync.RWMutex
 }
 
 func createWorker(fromClient chan messages.Message) (*worker, chan<- messages.Message) {
@@ -34,11 +36,13 @@ func createWorker(fromClient chan messages.Message) (*worker, chan<- messages.Me
 // TODO: ensure to worker hasnt already been started
 func (worker *worker) start() {
 	for message := range worker.toWorker {
+		worker.RLock()
 		for _, c := range worker.clients {
 			if c.client.GetStatus() == client.STATUS_OPEN {
 				c.toClient <- message
 			}
 		}
+		worker.RUnlock()
 	}
 }
 
@@ -49,6 +53,8 @@ func (worker *worker) addClient(conn *websocket.Conn) {
 		client:   client,
 		toClient: toClient,
 	}
+	worker.Lock()
 	worker.clients = append(worker.clients, c)
 	fmt.Printf("worker now has %d clients\n", len(worker.clients))
+	worker.Unlock()
 }

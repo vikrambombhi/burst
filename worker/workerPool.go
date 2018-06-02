@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"sync"
 
 	"github.com/gorilla/websocket"
 	"github.com/vikrambombhi/burst/messages"
 )
 
-const DEFAULT_WORKERS_PER_POOL int = 5
+const DEFAULT_WORKERS_PER_POOL int = 8
 
 var WorkersPerPool int
 
@@ -22,6 +23,7 @@ type WorkerPool struct {
 	workers             []*w
 	lastAllocatedWorker int
 	fromClient          chan messages.Message
+	sync.RWMutex
 }
 
 func getWorkersPerPool() int {
@@ -65,19 +67,24 @@ func CreateWorkerPool() *WorkerPool {
 }
 
 // TODO: currently using round robin to allocate clients to workers, use some other form of load balancing later
-//TODO: should lock workerPool for safety
 func (workerPool *WorkerPool) AllocateClient(conn *websocket.Conn) {
+	workerPool.RLock()
 	fmt.Printf("allocating client to worker #%d\n", workerPool.lastAllocatedWorker%WorkersPerPool)
 	lastAllocatedWorker := workerPool.lastAllocatedWorker
-
 	workerPool.workers[lastAllocatedWorker%WorkersPerPool].worker.addClient(conn)
+	workerPool.RUnlock()
+
+	workerPool.Lock()
 	workerPool.lastAllocatedWorker = lastAllocatedWorker + 1
+	workerPool.Unlock()
 }
 
 func (workerPool *WorkerPool) broadcastMessages() {
 	for message := range workerPool.fromClient {
+		workerPool.RLock()
 		for _, worker := range workerPool.workers {
 			worker.toWorker <- message
 		}
+		workerPool.RUnlock()
 	}
 }
