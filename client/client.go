@@ -12,7 +12,6 @@ type Client struct {
 	conn       *websocket.Conn
 	toClient   <-chan messages.Message
 	fromClient chan<- messages.Message
-	done       chan bool
 	status     int
 }
 
@@ -21,13 +20,11 @@ const STATUS_OPEN = 1
 
 func New(conn *websocket.Conn, fromClient chan<- messages.Message) (*Client, chan<- messages.Message) {
 	toClient := make(chan messages.Message, 10)
-	done := make(chan bool)
 	client := &Client{
 		addr:       conn.RemoteAddr().String(),
 		conn:       conn,
 		fromClient: fromClient,
 		toClient:   toClient,
-		done:       done,
 		status:     STATUS_OPEN,
 	}
 
@@ -46,7 +43,6 @@ func (client *Client) readMessages() {
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err) {
 				client.status = STATUS_CLOSED
-				close(client.done)
 			}
 			log.Println(err)
 			return
