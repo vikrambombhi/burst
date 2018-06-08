@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -47,8 +48,14 @@ func handler() http.Handler {
 }
 
 func main() {
+	address := flag.String("address", "localhost", "address to run server on")
+	port := flag.Int("port", 8080, "port the server will listen for connections on")
+	flag.Parse()
+	serverAddress := fmt.Sprintf("%s:%d", *address, *port)
+	fmt.Printf("%s", serverAddress)
+
 	// Register our handler.
 	http.Handle("/get-topics", getTopics())
 	http.Handle("/", handler())
-	http.ListenAndServe(":8080", nil)
+	http.ListenAndServe(serverAddress, nil)
 }
