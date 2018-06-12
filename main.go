@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	_ "net/http/pprof"
 
 	"github.com/gorilla/websocket"
 	"github.com/vikrambombhi/burst/topics"
