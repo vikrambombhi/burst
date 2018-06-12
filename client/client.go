@@ -45,10 +45,18 @@ func (client *Client) readMessages() {
 				client.status = STATUS_CLOSED
 			}
 			log.Println(err)
+			client.conn.Close()
+			return
+		}
+		if messageType == websocket.CloseMessage {
+			client.status = STATUS_CLOSED
+			client.conn.Close()
 			return
 		}
 
-		client.fromClient <- messages.New(message, messageType)
+		go func(message messages.Message) {
+			client.fromClient <- message
+		}(messages.New(message, messageType))
 	}
 }
 

@@ -39,7 +39,9 @@ func (worker *worker) start() {
 		worker.RLock()
 		for _, c := range worker.clients {
 			if c.client.GetStatus() == client.STATUS_OPEN {
-				c.toClient <- message
+				go func(message messages.Message) {
+					c.toClient <- message
+				}(message)
 			}
 		}
 		worker.RUnlock()
