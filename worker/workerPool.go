@@ -26,6 +26,13 @@ type WorkerPool struct {
 	sync.RWMutex
 }
 
+type Logs struct {
+	messages []messages.Message
+	sync.RWMutex
+}
+
+var logs Logs
+
 func getWorkersPerPool() int {
 	WorkersPerPool_string, ok := os.LookupEnv("WORKERS_PER_POOL")
 	if !ok {
@@ -49,7 +56,7 @@ func CreateWorkerPool() *WorkerPool {
 	workers := make([]*w, WorkersPerPool)
 
 	for i, _ := range workers {
-		worker, toWorker := createWorker(fromClient)
+		worker, toWorker := createWorker(fromClient, &logs)
 		workers[i] = &w{
 			worker:   worker,
 			toWorker: toWorker,
@@ -81,10 +88,8 @@ func (workerPool *WorkerPool) AllocateClient(conn *websocket.Conn) {
 
 func (workerPool *WorkerPool) broadcastMessages() {
 	for message := range workerPool.fromClient {
-		workerPool.RLock()
-		for _, worker := range workerPool.workers {
-			worker.toWorker <- message
-		}
-		workerPool.RUnlock()
+		logs.Lock()
+		logs.messages = append(logs.messages, message)
+		logs.Unlock()
 	}
 }

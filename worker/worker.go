@@ -3,6 +3,7 @@ package worker
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/vikrambombhi/burst/client"
@@ -18,18 +19,20 @@ type worker struct {
 	clients    []*c
 	fromClient chan messages.Message
 	toWorker   <-chan messages.Message
+	logs       *Logs
 	sync.RWMutex
 }
 
-func createWorker(fromClient chan messages.Message) (*worker, chan<- messages.Message) {
+func createWorker(fromClient chan messages.Message, logs *Logs) (*worker, chan<- messages.Message) {
 	toWorker := make(chan messages.Message, 10)
 
 	worker := &worker{
 		fromClient: fromClient,
 		toWorker:   toWorker,
+		logs:       logs,
 	}
 
-	go worker.start()
+	go worker.reader()
 	return worker, toWorker
 }
 
@@ -45,6 +48,40 @@ func (worker *worker) start() {
 			}
 		}
 		worker.RUnlock()
+	}
+}
+
+func (worker *worker) reader() {
+	i := 0
+	for {
+		for {
+			worker.RLock()
+			length := len(worker.logs.messages)
+			worker.RUnlock()
+			if i >= length {
+				time.Sleep(time.Millisecond)
+			} else {
+				break
+			}
+		}
+
+		worker.RLock()
+		message := worker.logs.messages[i]
+		worker.RUnlock()
+
+		var wg sync.WaitGroup
+		for _, c := range worker.clients {
+			if c.client.GetStatus() == client.STATUS_OPEN {
+				wg.Add(1)
+				go func(message messages.Message, wg *sync.WaitGroup) {
+					c.toClient <- message
+					wg.Done()
+				}(message, &wg)
+			}
+		}
+		wg.Wait()
+
+		i++
 	}
 }
 

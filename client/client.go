@@ -61,6 +61,7 @@ func (client *Client) readMessages() {
 }
 
 func (client *Client) writeMessages() {
+	i := 0
 	for message := range client.toClient {
 		msg := []byte(message.ToString())
 		//TODO: lock conn for safety
@@ -68,5 +69,6 @@ func (client *Client) writeMessages() {
 			log.Println(err)
 			return
 		}
+		i++
 	}
 }
