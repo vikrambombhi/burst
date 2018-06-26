@@ -16,48 +16,29 @@ type c struct {
 }
 
 type worker struct {
+	sync.RWMutex
 	clients    []*c
 	fromClient chan messages.Message
-	toWorker   <-chan messages.Message
 	logs       *Logs
-	sync.RWMutex
 }
 
-func createWorker(fromClient chan messages.Message, logs *Logs) (*worker, chan<- messages.Message) {
-	toWorker := make(chan messages.Message, 10)
-
+func createWorker(fromClient chan messages.Message, logs *Logs) *worker {
 	worker := &worker{
 		fromClient: fromClient,
-		toWorker:   toWorker,
 		logs:       logs,
 	}
 
 	go worker.reader()
-	return worker, toWorker
-}
-
-// TODO: ensure to worker hasnt already been started
-func (worker *worker) start() {
-	for message := range worker.toWorker {
-		worker.RLock()
-		for _, c := range worker.clients {
-			if c.client.GetStatus() == client.STATUS_OPEN {
-				go func(message messages.Message) {
-					c.toClient <- message
-				}(message)
-			}
-		}
-		worker.RUnlock()
-	}
+	return worker
 }
 
 func (worker *worker) reader() {
 	i := 0
 	for {
 		for {
-			worker.RLock()
+			worker.logs.RLock()
 			length := len(worker.logs.messages)
-			worker.RUnlock()
+			worker.logs.RUnlock()
 			if i >= length {
 				time.Sleep(time.Millisecond)
 			} else {
@@ -65,9 +46,9 @@ func (worker *worker) reader() {
 			}
 		}
 
-		worker.RLock()
+		worker.logs.RLock()
 		message := worker.logs.messages[i]
-		worker.RUnlock()
+		worker.logs.RUnlock()
 
 		var wg sync.WaitGroup
 		for _, c := range worker.clients {
@@ -85,7 +66,6 @@ func (worker *worker) reader() {
 	}
 }
 
-// need to lock worker for safety
 func (worker *worker) addClient(conn *websocket.Conn) {
 	client, toClient := client.New(conn, worker.fromClient)
 	c := &c{

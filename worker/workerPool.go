@@ -14,16 +14,11 @@ const DEFAULT_WORKERS_PER_POOL int = 8
 
 var WorkersPerPool int
 
-type w struct {
-	worker   *worker
-	toWorker chan<- messages.Message
-}
-
 type WorkerPool struct {
-	workers             []*w
+	sync.RWMutex
+	workers             []*worker
 	lastAllocatedWorker int
 	fromClient          chan messages.Message
-	sync.RWMutex
 }
 
 type Logs struct {
@@ -53,14 +48,11 @@ func CreateWorkerPool() *WorkerPool {
 	fromClient := make(chan messages.Message, 20)
 
 	// TODO: FIX TO USE NEW CHANNEL STRUCTURE
-	workers := make([]*w, WorkersPerPool)
+	workers := make([]*worker, WorkersPerPool)
 
 	for i, _ := range workers {
-		worker, toWorker := createWorker(fromClient, &logs)
-		workers[i] = &w{
-			worker:   worker,
-			toWorker: toWorker,
-		}
+		worker := createWorker(fromClient, &logs)
+		workers[i] = worker
 	}
 
 	workerPool := &WorkerPool{
@@ -78,7 +70,7 @@ func (workerPool *WorkerPool) AllocateClient(conn *websocket.Conn) {
 	workerPool.RLock()
 	fmt.Printf("allocating client to worker #%d\n", workerPool.lastAllocatedWorker%WorkersPerPool)
 	lastAllocatedWorker := workerPool.lastAllocatedWorker
-	workerPool.workers[lastAllocatedWorker%WorkersPerPool].worker.addClient(conn)
+	workerPool.workers[lastAllocatedWorker%WorkersPerPool].addClient(conn)
 	workerPool.RUnlock()
 
 	workerPool.Lock()
