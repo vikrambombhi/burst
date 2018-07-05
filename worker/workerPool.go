@@ -17,6 +17,7 @@ var WorkersPerPool int
 type WorkerPool struct {
 	sync.RWMutex
 	workers             []*worker
+	offsetWorkers       []*worker
 	lastAllocatedWorker int
 	fromClient          chan messages.Message
 }
@@ -52,6 +53,7 @@ func CreateWorkerPool() *WorkerPool {
 
 	for i, _ := range workers {
 		worker := createWorker(fromClient, &logs)
+		worker.start()
 		workers[i] = worker
 	}
 
@@ -66,16 +68,25 @@ func CreateWorkerPool() *WorkerPool {
 }
 
 // TODO: currently using round robin to allocate clients to workers, use some other form of load balancing later
-func (workerPool *WorkerPool) AllocateClient(conn *websocket.Conn) {
-	workerPool.RLock()
-	fmt.Printf("allocating client to worker #%d\n", workerPool.lastAllocatedWorker%WorkersPerPool)
-	lastAllocatedWorker := workerPool.lastAllocatedWorker
-	workerPool.workers[lastAllocatedWorker%WorkersPerPool].addClient(conn)
-	workerPool.RUnlock()
+func (workerPool *WorkerPool) AllocateClient(conn *websocket.Conn, offset int) {
+	if offset != 0 {
+		worker := createWorker(workerPool.fromClient, &logs)
+		worker.setOffSet(offset)
+		worker.start()
 
-	workerPool.Lock()
-	workerPool.lastAllocatedWorker = lastAllocatedWorker + 1
-	workerPool.Unlock()
+		worker.addClient(conn)
+
+		workerPool.Lock()
+		workerPool.offsetWorkers = append(workerPool.offsetWorkers, worker)
+		workerPool.Unlock()
+	} else {
+		workerPool.Lock()
+		defer workerPool.Unlock()
+
+		lastAllocatedWorker := workerPool.lastAllocatedWorker
+		workerPool.workers[lastAllocatedWorker%WorkersPerPool].addClient(conn)
+		workerPool.lastAllocatedWorker = lastAllocatedWorker + 1
+	}
 }
 
 func (workerPool *WorkerPool) broadcastMessages() {

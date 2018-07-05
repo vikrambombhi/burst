@@ -20,14 +20,18 @@ func init() {
 	}
 }
 
-func AddClient(conn *websocket.Conn, topicName string) {
-	t.Lock()
-	defer t.Unlock()
+func AddClient(conn *websocket.Conn, topicName string, offset int) {
+	t.RLock()
 	_, exists := t.workerPools[topicName]
+	t.RUnlock()
+
 	if !exists {
+		t.Lock()
 		t.workerPools[topicName] = worker.CreateWorkerPool()
+		t.Unlock()
 	}
-	t.workerPools[topicName].AllocateClient(conn)
+
+	t.workerPools[topicName].AllocateClient(conn, offset)
 }
 
 func GetAllTopics() []string {

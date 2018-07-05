@@ -20,50 +20,75 @@ type worker struct {
 	clients    []*c
 	fromClient chan messages.Message
 	logs       *Logs
+	offset     int
 }
 
 func createWorker(fromClient chan messages.Message, logs *Logs) *worker {
+	logs.RLock()
+	logTail := len(logs.messages)
+	logs.RUnlock()
+
 	worker := &worker{
 		fromClient: fromClient,
 		logs:       logs,
+		offset:     logTail,
 	}
 
-	go worker.reader()
 	return worker
 }
 
-func (worker *worker) reader() {
-	i := 0
-	for {
-		for {
-			worker.logs.RLock()
-			length := len(worker.logs.messages)
-			worker.logs.RUnlock()
-			if i >= length {
-				time.Sleep(time.Millisecond)
-			} else {
-				break
-			}
+func (worker *worker) setOffSet(offset int) {
+	logs.RLock()
+	logTail := len(logs.messages) + 1
+	logs.RUnlock()
+
+	if offset < 0 {
+		offset = logTail + offset
+		if offset < 0 {
+			offset = 0
 		}
-
-		worker.logs.RLock()
-		message := worker.logs.messages[i]
-		worker.logs.RUnlock()
-
-		var wg sync.WaitGroup
-		for _, c := range worker.clients {
-			if c.client.GetStatus() == client.STATUS_OPEN {
-				wg.Add(1)
-				go func(message messages.Message, wg *sync.WaitGroup) {
-					c.toClient <- message
-					wg.Done()
-				}(message, &wg)
-			}
+	} else {
+		if offset > logTail {
+			offset = logTail
 		}
-		wg.Wait()
-
-		i++
 	}
+
+	worker.offset = offset
+}
+
+func (worker *worker) start() {
+	go func(i *int) {
+		for {
+			for {
+				worker.logs.RLock()
+				length := len(worker.logs.messages)
+				worker.logs.RUnlock()
+				if *i >= length {
+					time.Sleep(time.Millisecond)
+				} else {
+					break
+				}
+			}
+
+			worker.logs.RLock()
+			message := worker.logs.messages[*i]
+			worker.logs.RUnlock()
+
+			var wg sync.WaitGroup
+			for _, c := range worker.clients {
+				if c.client.GetStatus() == client.STATUS_OPEN {
+					wg.Add(1)
+					go func(message messages.Message, wg *sync.WaitGroup) {
+						c.toClient <- message
+						wg.Done()
+					}(message, &wg)
+				}
+			}
+			wg.Wait()
+
+			*i++
+		}
+	}(&worker.offset)
 }
 
 func (worker *worker) addClient(conn *websocket.Conn) {
