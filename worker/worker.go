@@ -75,13 +75,13 @@ func (worker *worker) start() {
 			worker.logs.RUnlock()
 
 			var wg sync.WaitGroup
-			for _, c := range worker.clients {
-				if c.client.GetStatus() == client.STATUS_OPEN {
+			for _, cl := range worker.clients {
+				if cl.client.GetStatus() == client.STATUS_OPEN {
 					wg.Add(1)
-					go func(message messages.Message, wg *sync.WaitGroup) {
-						c.toClient <- message
+					go func(client *c, message messages.Message, wg *sync.WaitGroup) {
+						client.toClient <- message
 						wg.Done()
-					}(message, &wg)
+					}(cl, message, &wg)
 				}
 			}
 			wg.Wait()
