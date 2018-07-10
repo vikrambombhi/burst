@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"net/url"
 	"sync"
@@ -56,11 +57,11 @@ func connect(address string, topic string) (*websocket.Conn, error) {
 func write(conn *websocket.Conn, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	ticker := time.NewTicker(time.Millisecond * time.Duration(*rate))
+	ticker := time.NewTicker(time.Millisecond / time.Duration(*rate))
 	defer ticker.Stop()
 
 	sentMessages := 0
-	for _ = range ticker.C {
+	for range ticker.C {
 		message := []byte(time.Now().Format(time.RFC3339Nano))
 		err := conn.WriteMessage(websocket.TextMessage, message)
 		if err != nil {
@@ -69,16 +70,14 @@ func write(conn *websocket.Conn, wg *sync.WaitGroup) {
 		}
 		sentMessages++
 		if sentMessages >= *amount {
-			log.Printf("sent %d messages giving readers time to catch up...", sentMessages)
+			fmt.Printf("worker sent %d messages giving readers time to catch up....\n", sentMessages)
 			// Allow reader to read all the messages
-			time.Sleep(time.Second)
-			log.Println("sending close signal")
+			time.Sleep(time.Second * 5)
 			err := conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 			if err != nil {
 				log.Println("write close:", err)
-				return
 			}
-			break
+			return
 		}
 	}
 }
@@ -87,6 +86,7 @@ func read(conn *websocket.Conn, wg *sync.WaitGroup) {
 	defer wg.Done()
 	stat := &recieveTimes{}
 
+	var timeAppender sync.WaitGroup
 	for {
 		_, message, err := conn.ReadMessage()
 		if err != nil {
@@ -95,21 +95,23 @@ func read(conn *websocket.Conn, wg *sync.WaitGroup) {
 		}
 
 		now := time.Now()
-		go appendTimeSub(stat, message, now)
+		timeAppender.Add(1)
+		go appendTimeSub(stat, message, now, &timeAppender)
 	}
+	timeAppender.Wait()
 
-	log.Printf("read %d messages", len(stat.times))
 	stats.Lock()
 	stats.data = append(stats.data, stat)
 	stats.Unlock()
 }
 
-func appendTimeSub(stat *recieveTimes, message []byte, now time.Time) {
+func appendTimeSub(stat *recieveTimes, message []byte, now time.Time, wg *sync.WaitGroup) {
+	defer wg.Done()
 	m := string(message[:])
 
 	tfs, err := time.Parse(time.RFC3339Nano, m)
 	if err != nil {
-		log.Fatalf("Could not parse message", err)
+		log.Println("Could not parse message", err)
 		return
 	}
 	timeDiff := now.Sub(tfs)
@@ -134,8 +136,10 @@ func main() {
 	var recieved int
 
 	stats.Lock()
+	fmt.Printf("number of nodes that read something: %d\n", len(stats.data))
 	min = stats.data[0].times[1]
 	for _, data := range stats.data {
+		fmt.Printf("number of messages node read: %d\n", len(data.times))
 		for _, t := range data.times {
 			if t < min {
 				min = t
@@ -149,9 +153,6 @@ func main() {
 	}
 	stats.Unlock()
 
-	log.Println("max: ", max)
-	log.Println("min: ", min)
-	log.Println("sum: ", sum)
-	log.Printf("recieved %d messages\n", recieved)
-	log.Printf("avg: %fs", sum.Seconds()/float64(recieved))
+	avg := sum.Nanoseconds() / int64(recieved)
+	fmt.Printf("\n\n\nmax: %v\tmin: %v\tsum: %v\tavg: %vμs\nrecieved %d messages\n", max.String(), min.String(), sum.String(), avg, recieved)
 }
