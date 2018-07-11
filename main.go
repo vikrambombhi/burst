@@ -73,9 +73,8 @@ func main() {
 	port := flag.Int("port", 8080, "port the server will listen for connections on")
 	flag.Parse()
 	serverAddress := fmt.Sprintf("%s:%d", *address, *port)
-	fmt.Printf("%s", serverAddress)
+	fmt.Printf("Starting server on %s\n", serverAddress)
 
-	// Register our handler.
 	http.Handle("/get-topics", getTopics())
 	http.Handle("/", handler())
 	http.ListenAndServe(serverAddress, nil)
