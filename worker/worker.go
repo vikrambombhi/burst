@@ -75,13 +75,17 @@ func (worker *worker) start() {
 			worker.logs.RUnlock()
 
 			var wg sync.WaitGroup
-			for _, cl := range worker.clients {
+			for y := 0; y < len(worker.clients); y++ {
+				cl := worker.clients[y]
 				if cl.client.GetStatus() == client.STATUS_OPEN {
 					wg.Add(1)
 					go func(client *c, message messages.Message, wg *sync.WaitGroup) {
 						client.toClient <- message
 						wg.Done()
 					}(cl, message, &wg)
+				} else {
+					worker.clients = append(worker.clients[:y], worker.clients[y+1:]...)
+					y--
 				}
 			}
 			wg.Wait()

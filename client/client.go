@@ -63,7 +63,6 @@ func (client *Client) readMessages() {
 func (client *Client) writeMessages() {
 	for message := range client.toClient {
 		msg := []byte(message.ToString())
-		//TODO: lock conn for safety
 		if err := client.conn.WriteMessage(message.GetType(), msg); err != nil {
 			log.Println(err)
 			return
