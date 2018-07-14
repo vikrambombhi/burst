@@ -17,7 +17,6 @@ var WorkersPerPool int
 type WorkerPool struct {
 	sync.RWMutex
 	tailWorkers         []*worker
-	offsetWorkers       []*worker
 	lastAllocatedWorker int
 	fromClient          chan messages.Message
 }
@@ -51,7 +50,7 @@ func CreateWorkerPool() *WorkerPool {
 	// TODO: FIX TO USE NEW CHANNEL STRUCTURE
 	workers := make([]*worker, WorkersPerPool)
 
-	for i, _ := range workers {
+	for i := range workers {
 		worker := createWorker(fromClient, &logs)
 		worker.start()
 		workers[i] = worker
@@ -82,10 +81,6 @@ func (workerPool *WorkerPool) AllocateClient(conn *websocket.Conn, offset int) {
 		worker.start()
 
 		worker.addClient(conn)
-
-		workerPool.Lock()
-		workerPool.offsetWorkers = append(workerPool.offsetWorkers, worker)
-		workerPool.Unlock()
 	}
 }
 
