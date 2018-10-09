@@ -73,14 +73,14 @@ func (workerPool *WorkerPool) AllocateClient(conn *websocket.Conn, offset int) {
 		defer workerPool.Unlock()
 
 		lastAllocatedWorker := workerPool.lastAllocatedWorker
-		workerPool.tailWorkers[lastAllocatedWorker%WorkersPerPool].addClient(conn)
+		workerPool.tailWorkers[lastAllocatedWorker%WorkersPerPool].addWebIO(conn)
 		workerPool.lastAllocatedWorker = lastAllocatedWorker + 1
 	} else {
 		worker := createWorker(workerPool.fromClient, &logs)
 		worker.setOffSet(offset)
 		worker.start()
 
-		worker.addClient(conn)
+		worker.addWebIO(conn)
 	}
 }
 

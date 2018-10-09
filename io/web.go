@@ -1,4 +1,4 @@
-package client
+package io
 
 import (
 	"log"
@@ -7,37 +7,32 @@ import (
 	"github.com/vikrambombhi/burst/messages"
 )
 
-type Client struct {
-	addr       string
+type web struct {
 	conn       *websocket.Conn
-	toClient   <-chan messages.Message
 	fromClient chan<- messages.Message
+	toClient   <-chan messages.Message
 	status     int
 }
 
-const STATUS_CLOSED = 0
-const STATUS_OPEN = 1
-
-func New(conn *websocket.Conn, fromClient chan<- messages.Message) (*Client, chan<- messages.Message) {
+func createWebIO(conn *websocket.Conn, fromIO chan<- messages.Message) (*web, chan<- messages.Message) {
 	toClient := make(chan messages.Message, 10)
-	client := &Client{
-		addr:       conn.RemoteAddr().String(),
+	web := &web{
 		conn:       conn,
-		fromClient: fromClient,
+		fromClient: fromIO,
 		toClient:   toClient,
 		status:     STATUS_OPEN,
 	}
 
-	go client.readMessages()
-	go client.writeMessages()
-	return client, toClient
+	go web.readMessages()
+	go web.writeMessages()
+	return web, toClient
 }
 
-func (client *Client) GetStatus() int {
+func (client *web) GetStatus() int {
 	return client.status
 }
 
-func (client *Client) readMessages() {
+func (client *web) readMessages() {
 	for {
 		messageType, message, err := client.conn.ReadMessage()
 		if err != nil {
@@ -60,7 +55,7 @@ func (client *Client) readMessages() {
 	}
 }
 
-func (client *Client) writeMessages() {
+func (client *web) writeMessages() {
 	for message := range client.toClient {
 		msg := []byte(message.ToString())
 		if err := client.conn.WriteMessage(message.GetType(), msg); err != nil {

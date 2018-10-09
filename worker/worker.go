@@ -6,12 +6,12 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/vikrambombhi/burst/client"
+	"github.com/vikrambombhi/burst/io"
 	"github.com/vikrambombhi/burst/messages"
 )
 
 type c struct {
-	client   *client.Client
+	client   io.IO
 	toClient chan<- messages.Message
 }
 
@@ -77,7 +77,7 @@ func (worker *worker) start() {
 			var wg sync.WaitGroup
 			for y := 0; y < len(worker.clients); y++ {
 				cl := worker.clients[y]
-				if cl.client.GetStatus() == client.STATUS_OPEN {
+				if cl.client.GetStatus() == io.STATUS_OPEN {
 					wg.Add(1)
 					go func(client *c, message messages.Message, wg *sync.WaitGroup) {
 						client.toClient <- message
@@ -95,8 +95,11 @@ func (worker *worker) start() {
 	}(&worker.offset)
 }
 
-func (worker *worker) addClient(conn *websocket.Conn) {
-	client, toClient := client.New(conn, worker.fromClient)
+func (worker *worker) addWebIO(conn *websocket.Conn) {
+	webIOBuilder := io.WebIOBuilder{}
+	webIOBuilder.SetConn(conn)
+	webIOBuilder.SetReadChannel(worker.fromClient)
+	client, toClient, _ := webIOBuilder.BuildIO()
 	c := &c{
 		client:   client,
 		toClient: toClient,
