@@ -69,7 +69,7 @@ func handler() http.Handler {
 }
 
 func main() {
-	address := flag.String("address", "localhost", "address to run server on")
+	address := flag.String("address", "0.0.0.0", "address to run server on")
 	port := flag.Int("port", 8080, "port the server will listen for connections on")
 	flag.Parse()
 	serverAddress := fmt.Sprintf("%s:%d", *address, *port)
