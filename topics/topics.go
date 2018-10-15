@@ -29,6 +29,9 @@ func AddClient(conn *websocket.Conn, topicName string, offset int) {
 		t.Lock()
 		t.workerPools[topicName] = worker.CreateWorkerPool()
 		t.Unlock()
+
+		filename := "/tmp/" + topicName
+		t.workerPools[topicName].AllocateFile(filename, 0)
 	}
 
 	t.workerPools[topicName].AllocateClient(conn, offset)

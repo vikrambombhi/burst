@@ -84,6 +84,14 @@ func (workerPool *WorkerPool) AllocateClient(conn *websocket.Conn, offset int) {
 	}
 }
 
+func (workerPool *WorkerPool) AllocateFile(filename string, offset int) {
+	worker := createWorker(workerPool.fromClient, &logs)
+	worker.setOffSet(0)
+	worker.start()
+
+	worker.addFileIO(filename)
+}
+
 func (workerPool *WorkerPool) broadcastMessages() {
 	for message := range workerPool.fromClient {
 		logs.Lock()

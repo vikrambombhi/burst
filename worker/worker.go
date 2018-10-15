@@ -109,3 +109,18 @@ func (worker *worker) addWebIO(conn *websocket.Conn) {
 	fmt.Printf("worker now has %d clients\n", len(worker.clients))
 	worker.Unlock()
 }
+
+func (worker *worker) addFileIO(filename string) {
+	fileIOBuilder := io.FileIOBuilder{}
+	fileIOBuilder.SetFilename(filename)
+	fileIOBuilder.SetReadChannel(worker.fromClient)
+	file, toFile, _ := fileIOBuilder.BuildIO()
+	c := &c{
+		client:   file,
+		toClient: toFile,
+	}
+	worker.Lock()
+	worker.clients = append(worker.clients, c)
+	fmt.Printf("worker now has %d clients\n", len(worker.clients))
+	worker.Unlock()
+}
