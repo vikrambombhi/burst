@@ -13,7 +13,7 @@ import (
 )
 
 var address = flag.String("address", "localhost:8080", "server address to connect too")
-var topic = flag.String("topic", "example", "topic to send/recieve messages on")
+var topic = flag.String("topic", "chat", "topic to send/recieve messages on")
 
 func connect(address string, topic string) (*websocket.Conn, error) {
 	t := "/" + topic
