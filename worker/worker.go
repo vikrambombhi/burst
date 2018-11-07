@@ -19,17 +19,19 @@ type worker struct {
 	sync.RWMutex
 	clients    []*c
 	fromClient chan messages.Message
+	newClients chan *websocket.Conn
 	logs       *Logs
 	offset     int
 }
 
-func createWorker(fromClient chan messages.Message, logs *Logs) *worker {
+func createWorker(fromClient chan messages.Message, newClients chan *websocket.Conn, logs *Logs) *worker {
 	logs.RLock()
 	logTail := len(logs.messages)
 	logs.RUnlock()
 
 	worker := &worker{
 		fromClient: fromClient,
+		newClients: newClients,
 		logs:       logs,
 		offset:     logTail,
 	}
@@ -64,7 +66,24 @@ func (worker *worker) start() {
 				length := len(worker.logs.messages)
 				worker.logs.RUnlock()
 				if *i >= length {
-					time.Sleep(time.Millisecond)
+					// If all caught up to the messages log take time to accept new clients
+					select {
+					case conn := <-worker.newClients:
+						webIOBuilder := io.WebIOBuilder{}
+						webIOBuilder.SetConn(conn)
+						webIOBuilder.SetReadChannel(worker.fromClient)
+						client, toClient, _ := webIOBuilder.BuildIO()
+						c := &c{
+							client:   client,
+							toClient: toClient,
+						}
+						worker.Lock()
+						worker.clients = append(worker.clients, c)
+						fmt.Printf("worker now has %d clients\n", len(worker.clients))
+						worker.Unlock()
+					default:
+						time.Sleep(time.Second)
+					}
 				} else {
 					break
 				}
@@ -93,21 +112,6 @@ func (worker *worker) start() {
 			*i++
 		}
 	}(&worker.offset)
-}
-
-func (worker *worker) addWebIO(conn *websocket.Conn) {
-	webIOBuilder := io.WebIOBuilder{}
-	webIOBuilder.SetConn(conn)
-	webIOBuilder.SetReadChannel(worker.fromClient)
-	client, toClient, _ := webIOBuilder.BuildIO()
-	c := &c{
-		client:   client,
-		toClient: toClient,
-	}
-	worker.Lock()
-	worker.clients = append(worker.clients, c)
-	fmt.Printf("worker now has %d clients\n", len(worker.clients))
-	worker.Unlock()
 }
 
 func (worker *worker) addFileIO(filename string) {

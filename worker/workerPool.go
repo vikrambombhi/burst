@@ -15,10 +15,11 @@ const DEFAULT_WORKERS_PER_POOL int = 8
 var WorkersPerPool int
 
 type WorkerPool struct {
-	sync.RWMutex
-	tailWorkers         []*worker
-	lastAllocatedWorker int
-	fromClient          chan messages.Message
+	// TODO: implement latest worker. Only return latest message
+	// latestWorkers       []*worker
+	fromClient       chan messages.Message
+	newClientCurrent chan *websocket.Conn
+	// newClienLatest    chan *websocket.Conn
 }
 
 type Logs struct {
@@ -46,46 +47,42 @@ func CreateWorkerPool() *WorkerPool {
 	fmt.Printf("Creating worker-pool with %d workers\n", WorkersPerPool)
 
 	fromClient := make(chan messages.Message, 20)
+	newClientCurrent := make(chan *websocket.Conn, 1)
 
 	// TODO: FIX TO USE NEW CHANNEL STRUCTURE
 	workers := make([]*worker, WorkersPerPool)
 
 	for i := range workers {
-		worker := createWorker(fromClient, &logs)
+		worker := createWorker(fromClient, newClientCurrent, &logs)
 		worker.start()
 		workers[i] = worker
 	}
 
 	workerPool := &WorkerPool{
-		tailWorkers:         workers,
-		lastAllocatedWorker: 0,
-		fromClient:          fromClient,
+		fromClient:       fromClient,
+		newClientCurrent: newClientCurrent,
 	}
 
 	go workerPool.broadcastMessages()
 	return workerPool
 }
 
-// TODO: currently using round robin to allocate clients to workers, use some other form of load balancing later
 func (workerPool *WorkerPool) AllocateClient(conn *websocket.Conn, offset int) {
 	if offset == -1 {
-		workerPool.Lock()
-		defer workerPool.Unlock()
-
-		lastAllocatedWorker := workerPool.lastAllocatedWorker
-		workerPool.tailWorkers[lastAllocatedWorker%WorkersPerPool].addWebIO(conn)
-		workerPool.lastAllocatedWorker = lastAllocatedWorker + 1
+		workerPool.newClientCurrent <- conn
 	} else {
-		worker := createWorker(workerPool.fromClient, &logs)
+		// Create new worker for all clients not starting at current message
+		customClient := make(chan *websocket.Conn, 1)
+		worker := createWorker(workerPool.fromClient, customClient, &logs)
 		worker.setOffSet(offset)
 		worker.start()
 
-		worker.addWebIO(conn)
+		customClient <- conn
 	}
 }
 
 func (workerPool *WorkerPool) AllocateFile(filename string, offset int) {
-	worker := createWorker(workerPool.fromClient, &logs)
+	worker := createWorker(workerPool.fromClient, workerPool.newClientCurrent, &logs)
 	worker.setOffSet(0)
 	worker.start()
 
