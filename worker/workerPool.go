@@ -1,10 +1,8 @@
 package worker
 
 import (
-	"fmt"
-	"os"
-	"strconv"
 	"sync"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/vikrambombhi/burst/messages"
@@ -29,34 +27,9 @@ type Logs struct {
 
 var logs Logs
 
-func getWorkersPerPool() int {
-	WorkersPerPool_string, ok := os.LookupEnv("WORKERS_PER_POOL")
-	if !ok {
-		return DEFAULT_WORKERS_PER_POOL
-	}
-
-	workersPerPool, err := strconv.Atoi(WorkersPerPool_string)
-	if err != nil {
-		return DEFAULT_WORKERS_PER_POOL
-	}
-	return workersPerPool
-}
-
 func CreateWorkerPool() *WorkerPool {
-	WorkersPerPool = getWorkersPerPool()
-	fmt.Printf("Creating worker-pool with %d workers\n", WorkersPerPool)
-
 	fromClient := make(chan messages.Message, 20)
 	newClientCurrent := make(chan *websocket.Conn, 1)
-
-	// TODO: FIX TO USE NEW CHANNEL STRUCTURE
-	workers := make([]*worker, WorkersPerPool)
-
-	for i := range workers {
-		worker := createWorker(fromClient, newClientCurrent, &logs)
-		worker.start()
-		workers[i] = worker
-	}
 
 	workerPool := &WorkerPool{
 		fromClient:       fromClient,
@@ -69,7 +42,18 @@ func CreateWorkerPool() *WorkerPool {
 
 func (workerPool *WorkerPool) AllocateClient(conn *websocket.Conn, offset int) {
 	if offset == -1 {
-		workerPool.newClientCurrent <- conn
+		for {
+			select {
+			// Try having one of the existing workers accept the new client
+			case workerPool.newClientCurrent <- conn:
+				return
+			// If no workers are available create a new one
+			case <-time.After(time.Second):
+				worker := createWorker(workerPool.fromClient, workerPool.newClientCurrent, &logs)
+				worker.setOffSet(offset)
+				worker.start()
+			}
+		}
 	} else {
 		// Create new worker for all clients not starting at current message
 		customClient := make(chan *websocket.Conn, 1)
