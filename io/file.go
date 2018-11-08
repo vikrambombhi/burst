@@ -1,7 +1,7 @@
 package io
 
 import (
-	"bufio"
+	"encoding/gob"
 	"log"
 	"os"
 
@@ -33,10 +33,12 @@ func (file *file) readMessages() {
 }
 
 func (file *file) writeMessages() {
-	writer := bufio.NewWriter(file.file)
+	encoder := gob.NewEncoder(file.file)
 	for message := range file.toFile {
-		writer.WriteString(message.ToString())
-		writer.Flush()
+		err := encoder.Encode(message)
+		if err != nil {
+			log.Fatal("encode error:", err)
+		}
 	}
 }
 

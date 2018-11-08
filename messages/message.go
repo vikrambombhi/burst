@@ -1,21 +1,21 @@
 package messages
 
 type Message struct {
-	message     string
-	messageType int
+	Message     string
+	MessageType int
 }
 
 func New(message []byte, messageType int) Message {
 	return Message{
-		message:     string(message[:]),
-		messageType: messageType,
+		Message:     string(message[:]),
+		MessageType: messageType,
 	}
 }
 
 func (message *Message) ToString() string {
-	return message.message
+	return message.Message
 }
 
 func (message *Message) GetType() int {
-	return message.messageType
+	return message.MessageType
 }
