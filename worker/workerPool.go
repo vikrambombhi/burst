@@ -8,10 +8,6 @@ import (
 	"github.com/vikrambombhi/burst/messages"
 )
 
-const DEFAULT_WORKERS_PER_POOL int = 8
-
-var WorkersPerPool int
-
 type WorkerPool struct {
 	// TODO: implement latest worker. Only return latest message
 	// latestWorkers       []*worker
