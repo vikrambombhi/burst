@@ -101,7 +101,7 @@ func (worker *worker) start() {
 					go func(client *c, message messages.Message, wg *sync.WaitGroup) {
 						client.toClient <- message
 						wg.Done()
-					}(cl, message, &wg)
+					}(cl, *message, &wg)
 				} else {
 					worker.clients = append(worker.clients[:y], worker.clients[y+1:]...)
 					y--

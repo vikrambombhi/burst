@@ -10,12 +10,12 @@ import (
 type web struct {
 	conn       *websocket.Conn
 	fromClient chan<- messages.Message
-	toClient   <-chan messages.Message
+	toClient   <-chan *messages.Message
 	status     int
 }
 
-func createWebIO(conn *websocket.Conn, fromIO chan<- messages.Message) (*web, chan<- messages.Message) {
-	toClient := make(chan messages.Message, 10)
+func createWebIO(conn *websocket.Conn, fromIO chan<- messages.Message) (*web, chan<- *messages.Message) {
+	toClient := make(chan *messages.Message, 10)
 	web := &web{
 		conn:       conn,
 		fromClient: fromIO,

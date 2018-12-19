@@ -17,7 +17,7 @@ type WorkerPool struct {
 }
 
 type Logs struct {
-	messages []messages.Message
+	messages []*messages.Message
 	sync.RWMutex
 }
 
@@ -72,7 +72,7 @@ func (workerPool *WorkerPool) AllocateFile(filename string, offset int) {
 func (workerPool *WorkerPool) broadcastMessages() {
 	for message := range workerPool.fromClient {
 		logs.Lock()
-		logs.messages = append(logs.messages, message)
+		logs.messages = append(logs.messages, &message)
 		logs.Unlock()
 	}
 }

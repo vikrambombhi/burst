@@ -10,11 +10,11 @@ import (
 
 type file struct {
 	file   *os.File
-	toFile <-chan messages.Message
+	toFile <-chan *messages.Message
 }
 
-func createFileIO(filename string, fromIO chan<- messages.Message) (*file, chan<- messages.Message) {
-	toFile := make(chan messages.Message, 10)
+func createFileIO(filename string, fromIO chan<- messages.Message) (*file, chan<- *messages.Message) {
+	toFile := make(chan *messages.Message, 10)
 	f, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0777)
 	if err != nil {
 		log.Println("err creating file")

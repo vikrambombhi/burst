@@ -36,7 +36,7 @@ func (w *WebIOBuilder) SetReadChannel(fromIO chan<- messages.Message) {
 	w.readChannel = fromIO
 }
 
-func (w *WebIOBuilder) BuildIO() (IO, chan<- messages.Message, error) {
+func (w *WebIOBuilder) BuildIO() (IO, chan<- *messages.Message, error) {
 	if w.conn == nil || w.readChannel == nil {
 		return nil, nil, errors.New("connection and/or read channel needs to be set")
 	}
@@ -57,7 +57,7 @@ func (f *FileIOBuilder) SetReadChannel(fromIO chan<- messages.Message) {
 	f.readChannel = fromIO
 }
 
-func (f *FileIOBuilder) BuildIO() (IO, chan<- messages.Message, error) {
+func (f *FileIOBuilder) BuildIO() (IO, chan<- *messages.Message, error) {
 	if f.filename == "" || f.readChannel == nil {
 		return nil, nil, errors.New("filename and/or read channel needs to be set")
 	}
