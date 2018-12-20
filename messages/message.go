@@ -3,6 +3,7 @@ package messages
 type Message struct {
 	Message     string
 	MessageType int
+	Flushed     bool
 }
 
 func New(message []byte, messageType int) Message {

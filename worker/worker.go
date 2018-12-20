@@ -7,12 +7,13 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/vikrambombhi/burst/io"
+	"github.com/vikrambombhi/burst/log"
 	"github.com/vikrambombhi/burst/messages"
 )
 
 type c struct {
 	client   io.IO
-	toClient chan<- messages.Message
+	toClient chan<- *messages.Message
 }
 
 type worker struct {
@@ -20,15 +21,12 @@ type worker struct {
 	clients    []*c
 	fromClient chan messages.Message
 	newClients chan *websocket.Conn
-	logs       *Logs
-	offset     int
+	logs       log.Log
+	offset     int64
 }
 
-func createWorker(fromClient chan messages.Message, newClients chan *websocket.Conn, logs *Logs) *worker {
-	logs.RLock()
-	logTail := len(logs.messages)
-	logs.RUnlock()
-
+func createWorker(fromClient chan messages.Message, newClients chan *websocket.Conn, logs log.Log) *worker {
+	logTail := logs.Size()
 	worker := &worker{
 		fromClient: fromClient,
 		newClients: newClients,
@@ -39,10 +37,8 @@ func createWorker(fromClient chan messages.Message, newClients chan *websocket.C
 	return worker
 }
 
-func (worker *worker) setOffSet(offset int) {
-	logs.RLock()
-	logTail := len(logs.messages) + 1
-	logs.RUnlock()
+func (worker *worker) setOffSet(offset int64) {
+	logTail := worker.logs.Size()
 
 	if offset < 0 {
 		offset = logTail + offset
@@ -59,12 +55,10 @@ func (worker *worker) setOffSet(offset int) {
 }
 
 func (worker *worker) start() {
-	go func(i *int) {
+	go func(i *int64) {
 		for {
 			for {
-				worker.logs.RLock()
-				length := len(worker.logs.messages)
-				worker.logs.RUnlock()
+				length := worker.logs.Size()
 				if *i >= length {
 					// If all caught up to the messages log take time to accept new clients
 					select {
@@ -85,13 +79,14 @@ func (worker *worker) start() {
 						time.Sleep(time.Second)
 					}
 				} else {
+					fmt.Println("breaking from accepting new conns")
 					break
 				}
 			}
 
-			worker.logs.RLock()
-			message := worker.logs.messages[*i]
-			worker.logs.RUnlock()
+			fmt.Println("reading message")
+			message := worker.logs.Read(*i)
+			fmt.Println("read message")
 
 			var wg sync.WaitGroup
 			for y := 0; y < len(worker.clients); y++ {
@@ -99,7 +94,7 @@ func (worker *worker) start() {
 				if cl.client.GetStatus() == io.STATUS_OPEN {
 					wg.Add(1)
 					go func(client *c, message messages.Message, wg *sync.WaitGroup) {
-						client.toClient <- message
+						client.toClient <- &message
 						wg.Done()
 					}(cl, *message, &wg)
 				} else {
@@ -112,19 +107,4 @@ func (worker *worker) start() {
 			*i++
 		}
 	}(&worker.offset)
-}
-
-func (worker *worker) addFileIO(filename string) {
-	fileIOBuilder := io.FileIOBuilder{}
-	fileIOBuilder.SetFilename(filename)
-	fileIOBuilder.SetReadChannel(worker.fromClient)
-	file, toFile, _ := fileIOBuilder.BuildIO()
-	c := &c{
-		client:   file,
-		toClient: toFile,
-	}
-	worker.Lock()
-	worker.clients = append(worker.clients, c)
-	fmt.Printf("worker now has %d clients\n", len(worker.clients))
-	worker.Unlock()
 }

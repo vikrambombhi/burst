@@ -19,7 +19,7 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-func getOffset(r *http.Request) (int, error) {
+func getOffset(r *http.Request) (int64, error) {
 	offset := r.FormValue("offset")
 
 	if offset == "" {
@@ -30,7 +30,8 @@ func getOffset(r *http.Request) (int, error) {
 	if err != nil {
 		return -1, err
 	}
-	return i, nil
+
+	return int64(i), nil
 }
 
 func getTopics() http.Handler {

@@ -20,18 +20,15 @@ func init() {
 	}
 }
 
-func AddClient(conn *websocket.Conn, topicName string, offset int) {
+func AddClient(conn *websocket.Conn, topicName string, offset int64) {
 	t.RLock()
 	_, exists := t.workerPools[topicName]
 	t.RUnlock()
 
 	if !exists {
 		t.Lock()
-		t.workerPools[topicName] = worker.CreateWorkerPool()
+		t.workerPools[topicName] = worker.CreateWorkerPool(topicName)
 		t.Unlock()
-
-		filename := "/tmp/" + topicName
-		t.workerPools[topicName].AllocateFile(filename, 0)
 	}
 
 	t.workerPools[topicName].AllocateClient(conn, offset)

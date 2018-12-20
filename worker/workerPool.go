@@ -1,10 +1,10 @@
 package worker
 
 import (
-	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/vikrambombhi/burst/log"
 	"github.com/vikrambombhi/burst/messages"
 )
 
@@ -16,16 +16,13 @@ type WorkerPool struct {
 	// newClienLatest    chan *websocket.Conn
 }
 
-type Logs struct {
-	messages []*messages.Message
-	sync.RWMutex
-}
+var logs log.Log
 
-var logs Logs
+func CreateWorkerPool(name string) *WorkerPool {
+	logs = log.CreateLog(name, 100)
 
-func CreateWorkerPool() *WorkerPool {
 	fromClient := make(chan messages.Message, 20)
-	newClientCurrent := make(chan *websocket.Conn, 1)
+	newClientCurrent := make(chan *websocket.Conn, 0)
 
 	workerPool := &WorkerPool{
 		fromClient:       fromClient,
@@ -36,7 +33,7 @@ func CreateWorkerPool() *WorkerPool {
 	return workerPool
 }
 
-func (workerPool *WorkerPool) AllocateClient(conn *websocket.Conn, offset int) {
+func (workerPool *WorkerPool) AllocateClient(conn *websocket.Conn, offset int64) {
 	if offset == -1 {
 		for {
 			select {
@@ -45,7 +42,7 @@ func (workerPool *WorkerPool) AllocateClient(conn *websocket.Conn, offset int) {
 				return
 			// If no workers are available create a new one
 			case <-time.After(time.Second):
-				worker := createWorker(workerPool.fromClient, workerPool.newClientCurrent, &logs)
+				worker := createWorker(workerPool.fromClient, workerPool.newClientCurrent, logs)
 				worker.setOffSet(offset)
 				worker.start()
 			}
@@ -53,7 +50,7 @@ func (workerPool *WorkerPool) AllocateClient(conn *websocket.Conn, offset int) {
 	} else {
 		// Create new worker for all clients not starting at current message
 		customClient := make(chan *websocket.Conn, 1)
-		worker := createWorker(workerPool.fromClient, customClient, &logs)
+		worker := createWorker(workerPool.fromClient, customClient, logs)
 		worker.setOffSet(offset)
 		worker.start()
 
@@ -61,18 +58,8 @@ func (workerPool *WorkerPool) AllocateClient(conn *websocket.Conn, offset int) {
 	}
 }
 
-func (workerPool *WorkerPool) AllocateFile(filename string, offset int) {
-	worker := createWorker(workerPool.fromClient, workerPool.newClientCurrent, &logs)
-	worker.setOffSet(0)
-	worker.start()
-
-	worker.addFileIO(filename)
-}
-
 func (workerPool *WorkerPool) broadcastMessages() {
 	for message := range workerPool.fromClient {
-		logs.Lock()
-		logs.messages = append(logs.messages, &message)
-		logs.Unlock()
+		logs.Write(&message)
 	}
 }
