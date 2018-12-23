@@ -25,14 +25,14 @@ type ioBuilder interface {
 
 type WebIOBuilder struct {
 	conn        *websocket.Conn
-	readChannel chan<- messages.Message
+	readChannel chan<- *messages.Message
 }
 
 func (w *WebIOBuilder) SetConn(conn *websocket.Conn) {
 	w.conn = conn
 }
 
-func (w *WebIOBuilder) SetReadChannel(fromIO chan<- messages.Message) {
+func (w *WebIOBuilder) SetReadChannel(fromIO chan<- *messages.Message) {
 	w.readChannel = fromIO
 }
 
@@ -46,14 +46,14 @@ func (w *WebIOBuilder) BuildIO() (IO, chan<- *messages.Message, error) {
 
 type FileIOBuilder struct {
 	filename    string
-	readChannel chan<- messages.Message
+	readChannel chan<- *messages.Message
 }
 
 func (f *FileIOBuilder) SetFilename(filename string) {
 	f.filename = filename
 }
 
-func (f *FileIOBuilder) SetReadChannel(fromIO chan<- messages.Message) {
+func (f *FileIOBuilder) SetReadChannel(fromIO chan<- *messages.Message) {
 	f.readChannel = fromIO
 }
 

@@ -19,13 +19,13 @@ type c struct {
 type worker struct {
 	sync.RWMutex
 	clients    []*c
-	fromClient chan messages.Message
+	fromClient chan *messages.Message
 	newClients chan *websocket.Conn
 	logs       log.Log
 	offset     int64
 }
 
-func createWorker(fromClient chan messages.Message, newClients chan *websocket.Conn, logs log.Log) *worker {
+func createWorker(fromClient chan *messages.Message, newClients chan *websocket.Conn, logs log.Log) *worker {
 	logTail := logs.Size()
 	worker := &worker{
 		fromClient: fromClient,
@@ -84,9 +84,7 @@ func (worker *worker) start() {
 				}
 			}
 
-			fmt.Println("reading message")
 			message := worker.logs.Read(*i)
-			fmt.Println("read message")
 
 			var wg sync.WaitGroup
 			for y := 0; y < len(worker.clients); y++ {

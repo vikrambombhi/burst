@@ -11,7 +11,7 @@ import (
 type WorkerPool struct {
 	// TODO: implement latest worker. Only return latest message
 	// latestWorkers       []*worker
-	fromClient       chan messages.Message
+	fromClient       chan *messages.Message
 	newClientCurrent chan *websocket.Conn
 	// newClienLatest    chan *websocket.Conn
 }
@@ -21,7 +21,7 @@ var logs log.Log
 func CreateWorkerPool(name string) *WorkerPool {
 	logs = log.CreateLog(name, 100)
 
-	fromClient := make(chan messages.Message, 20)
+	fromClient := make(chan *messages.Message, 20)
 	newClientCurrent := make(chan *websocket.Conn, 0)
 
 	workerPool := &WorkerPool{
@@ -60,6 +60,6 @@ func (workerPool *WorkerPool) AllocateClient(conn *websocket.Conn, offset int64)
 
 func (workerPool *WorkerPool) broadcastMessages() {
 	for message := range workerPool.fromClient {
-		logs.Write(&message)
+		logs.Write(message)
 	}
 }

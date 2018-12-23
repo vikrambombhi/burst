@@ -9,12 +9,12 @@ import (
 
 type web struct {
 	conn       *websocket.Conn
-	fromClient chan<- messages.Message
+	fromClient chan<- *messages.Message
 	toClient   <-chan *messages.Message
 	status     int
 }
 
-func createWebIO(conn *websocket.Conn, fromIO chan<- messages.Message) (*web, chan<- *messages.Message) {
+func createWebIO(conn *websocket.Conn, fromIO chan<- *messages.Message) (*web, chan<- *messages.Message) {
 	toClient := make(chan *messages.Message, 10)
 	web := &web{
 		conn:       conn,
@@ -49,9 +49,10 @@ func (client *web) readMessages() {
 			return
 		}
 
-		go func(message messages.Message) {
-			client.fromClient <- message
-		}(messages.New(message, messageType))
+		go func(message []byte) {
+			m := messages.New(message, messageType)
+			client.fromClient <- &m
+		}(message)
 	}
 }
 

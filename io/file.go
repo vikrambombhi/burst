@@ -13,8 +13,8 @@ type file struct {
 	toFile <-chan *messages.Message
 }
 
-func createFileIO(filename string, fromIO chan<- messages.Message) (*file, chan<- *messages.Message) {
-	toFile := make(chan *messages.Message, 10)
+func createFileIO(filename string, fromIO chan<- *messages.Message) (*file, chan<- *messages.Message) {
+	toFile := make(chan *messages.Message)
 	f, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0777)
 	if err != nil {
 		log.Println("err creating file")
@@ -38,6 +38,8 @@ func (file *file) writeMessages() {
 		err := encoder.Encode(message)
 		if err != nil {
 			log.Fatal("encode error:", err)
+		} else {
+			message.Flushed = true
 		}
 	}
 }
