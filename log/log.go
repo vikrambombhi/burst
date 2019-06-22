@@ -21,8 +21,7 @@ type log struct {
 	sync.RWMutex
 }
 
-func CreateLog(name string, size int64) Log {
-	filename := "/tmp/" + name
+func CreateLog(filename string, size int64) Log {
 	fileIOBuilder := io.FileIOBuilder{}
 	fileIOBuilder.SetFilename(filename)
 	fileIOBuilder.SetReadChannel(make(chan *messages.Message))

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"strconv"
+	"strings"
 
 	"github.com/gorilla/websocket"
 	"github.com/vikrambombhi/burst/topics"
@@ -62,7 +63,8 @@ func handler() http.Handler {
 			}
 			log.Println("New connection from: ", conn.RemoteAddr().String())
 
-			topics.AddClient(conn, r.URL.Path, offset)
+			topicName := strings.Replace(r.URL.Path, "/", "", -1)
+			topics.AddClient(conn, topicName, offset)
 		} else {
 			http.Error(w, "Server requires connection to be a websocket, use format '/{topic name}'", http.StatusUpgradeRequired)
 		}
