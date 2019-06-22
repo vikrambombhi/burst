@@ -1,7 +1,9 @@
 package io
 
 import (
-	"encoding/gob"
+	"bufio"
+	"bytes"
+	"encoding/binary"
 	"log"
 	"os"
 
@@ -15,7 +17,7 @@ type file struct {
 
 func createFileIO(filename string, fromIO chan<- *messages.Message) (*file, chan<- *messages.Message) {
 	toFile := make(chan *messages.Message)
-	f, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0777)
+	f, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
 		log.Println("err creating file")
 		panic(err)
@@ -33,14 +35,29 @@ func (file *file) readMessages() {
 }
 
 func (file *file) writeMessages() {
-	encoder := gob.NewEncoder(file.file)
+	writer := bufio.NewWriter(file.file)
 	for message := range file.toFile {
-		err := encoder.Encode(message)
-		if err != nil {
-			log.Fatal("encode error:", err)
-		} else {
-			message.Flushed = true
-		}
+		// Convert Message.Message to binary
+		messageBody := new(bytes.Buffer)
+		binary.Write(messageBody, binary.LittleEndian, message.Message)
+
+		// Convert Message.MessageType to binary, we know it will always be < 1 byte
+		messageType := make([]byte, 1)
+		binary.PutUvarint(messageType, uint64(message.MessageType))
+
+		// Calculate length of message being writen to file
+		length := make([]byte, 8)
+		l := uint64(messageBody.Len())
+		binary.PutUvarint(length, l)
+
+		// Write length of message to file followed by the message itself
+		writer.Write(length)
+		writer.Write(messageBody.Bytes())
+		writer.Write(messageType)
+
+		// TODO: Check if flushing after every message is a bottleneck
+		writer.Flush()
+		message.Flushed = true
 	}
 }
 
