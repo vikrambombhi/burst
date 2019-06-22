@@ -1,22 +1,30 @@
 package messages
 
 type Message struct {
-	Message     []byte
-	MessageType int
-	Flushed     bool
+	message     []byte
+	messageType int
+	flushed     bool
 }
 
 func New(message []byte, messageType int) Message {
 	return Message{
-		Message:     message,
-		MessageType: messageType,
+		message:     message,
+		messageType: messageType,
 	}
 }
 
-func (message *Message) ToString() string {
-	return string(message.Message)
+func (message *Message) GetMessage() []byte {
+	return message.message
 }
 
 func (message *Message) GetType() int {
-	return message.MessageType
+	return message.messageType
+}
+
+func (message *Message) IsFlushed() bool {
+	return message.flushed
+}
+
+func (message *Message) MarkAsFlushed() {
+	message.flushed = true
 }

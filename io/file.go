@@ -39,11 +39,11 @@ func (file *file) writeMessages() {
 	for message := range file.toFile {
 		// Convert Message.Message to binary
 		messageBody := new(bytes.Buffer)
-		binary.Write(messageBody, binary.LittleEndian, message.Message)
+		binary.Write(messageBody, binary.LittleEndian, message.GetMessage())
 
 		// Convert Message.MessageType to binary, we know it will always be < 1 byte
 		messageType := make([]byte, 1)
-		binary.PutUvarint(messageType, uint64(message.MessageType))
+		binary.PutUvarint(messageType, uint64(message.GetType()))
 
 		// Calculate length of message being writen to file
 		length := make([]byte, 8)
@@ -57,7 +57,7 @@ func (file *file) writeMessages() {
 
 		// TODO: Check if flushing after every message is a bottleneck
 		writer.Flush()
-		message.Flushed = true
+		message.MarkAsFlushed()
 	}
 }
 

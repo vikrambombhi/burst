@@ -58,8 +58,7 @@ func (client *web) readMessages() {
 
 func (client *web) writeMessages() {
 	for message := range client.toClient {
-		msg := message.Message
-		if err := client.conn.WriteMessage(message.GetType(), msg); err != nil {
+		if err := client.conn.WriteMessage(message.GetType(), message.GetMessage()); err != nil {
 			log.Println(err)
 			return
 		}
