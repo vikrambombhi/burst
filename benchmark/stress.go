@@ -12,7 +12,7 @@ import (
 )
 
 var address = flag.String("address", "localhost:8080", "server address to connect too")
-var topic = flag.String("topic", "example", "topic to send/recieve messages on")
+var topic = flag.String("topic", "stress", "topic to send/recieve messages on")
 var amount = flag.Int("amount", 10000, "number of messages each node should send")
 var rate = flag.Int("rate", 1, "rate of messages to send in milliseconds")
 var nodes = flag.Int("nodes", 4, "number of nodes to send/recieve messages")

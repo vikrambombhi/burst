@@ -55,7 +55,7 @@ func (log Log) Read(position int64) *messages.Message {
 func (log Log) printLog() {
 	fmt.Printf("printing log of size: %v\n\n", log.Size())
 	for i := 0; int64(i) < log.Size(); i++ {
-		fmt.Printf("Message %v at position %v", log.Read(int64(i)).Message, i)
+		fmt.Printf("Message %v at position %v", log.Read(int64(i)).GetMessage, i)
 	}
 	fmt.Printf("\n\n")
 }
@@ -68,7 +68,7 @@ func (log Log) Write(message *messages.Message) {
 		log.size++
 		log.Unlock()
 	} else {
-		for log.messages[i].Flushed == false {
+		for log.messages[i].IsFlushed() == false {
 			time.Sleep(5 * time.Second)
 		}
 		log.Lock()
