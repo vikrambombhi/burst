@@ -10,7 +10,6 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
-	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -119,15 +118,10 @@ func runServer(address string, port int, done chan bool, wg *sync.WaitGroup) {
 }
 
 func main() {
-	cores := flag.Int("cores", -1, "Number of cores to use")
 	address := flag.String("address", "0.0.0.0", "address to run server on")
 	port := flag.Int("port", 8080, "port the server will listen for connections on")
 	shouldProfile := flag.Bool("profile", false, "enable profiling")
 	flag.Parse()
-
-	fmt.Println("Cores: ", *cores)
-	runtime.GOMAXPROCS(*cores)
-	fmt.Printf("Using %d cores\n", runtime.NumCPU())
 
 	if *shouldProfile {
 		profile()
