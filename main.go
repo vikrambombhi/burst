@@ -11,7 +11,6 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
-	"runtime/pprof"
 	"strconv"
 	"strings"
 	"sync"
@@ -80,18 +79,13 @@ func handler() http.Handler {
 }
 
 func profile() {
-	f, err := os.Create("burst_cpu.prof")
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Println("Starting profile")
-	pprof.StartCPUProfile(f)
-	// defer pprof.StopCPUProfile()
-}
+	pprofMux := http.DefaultServeMux
+	http.DefaultServeMux = http.NewServeMux()
 
-func closeProfile() {
-	fmt.Println("Closing profile")
-	pprof.StopCPUProfile()
+	// Pprof server.
+	go func() {
+		log.Println(http.ListenAndServe("localhost:8081", pprofMux))
+	}()
 }
 
 func runServer(address string, port int, done chan bool, wg *sync.WaitGroup) {
@@ -156,19 +150,6 @@ func main() {
 	log.Print("os.Interrupt - shutting down...\n")
 	shutDownServer <- true
 	wg.Wait()
-
-	if *shouldProfile {
-		closeProfile()
-		f, err := os.Create("burst_mem.prof")
-		if err != nil {
-			log.Fatal("could not create memory profile: ", err)
-		}
-		defer f.Close() // error handling omitted for example
-		runtime.GC()    // get up-to-date statistics
-		if err := pprof.WriteHeapProfile(f); err != nil {
-			log.Fatal("could not write memory profile: ", err)
-		}
-	}
 
 	defer os.Exit(1)
 
